@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuickPrint — Scan. Upload. Print.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --paper:#F7F2E7; --paper-dim:#EFE8D8; --ink:#1C1B18; --ink-soft:#55524a;
+    --machine:#6E7178; --line:#D9D0BC; --stamp:#C1443C; --stamp-dim:#f1d9d6;
+    --go:#2E7D4F; --go-dim:#dcefe2; --warn:#B9812B; --warn-dim:#f4e6cd; --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:'IBM Plex Sans', sans-serif; min-height:100vh; }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  .app{ max-width:640px; margin:0 auto; padding:20px 18px 60px; }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding-bottom:16px; margin-bottom:18px; border-bottom:2px solid var(--ink); }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{ width:34px;height:34px; background:var(--ink); color:var(--paper); display:flex;align-items:center;justify-content:center; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:15px; border-radius:var(--radius); }
+  .brand-name{ font-weight:700; font-size:17px; }
+  .brand-sub{ font-size:10px; color:var(--machine); text-transform:uppercase; letter-spacing:1.5px; margin-top:1px;}
+  .nav-toggle{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--machine); background:none;border:1px solid var(--line); padding:6px 10px; border-radius:var(--radius); cursor:pointer; }
+  .nav-toggle:hover{ border-color:var(--ink); color:var(--ink); }
+  .steps{ display:flex; gap:6px; margin-bottom:20px; }
+  .step-dot{ flex:1; height:3px; background:var(--line); border-radius:2px; }
+  .step-dot.active{ background:var(--ink); }
+  .step-dot.done{ background:var(--go); }
+  .panel{ background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:22px; margin-bottom:16px; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--machine); margin-bottom:6px; }
+  h2{ margin:0 0 4px; font-size:19px; }
+  .hint{ color:var(--ink-soft); font-size:13.5px; margin:0 0 16px; line-height:1.5;}
+  .dropzone{ border:2px dashed var(--line); border-radius:var(--radius); padding:30px 16px; text-align:center; cursor:pointer; transition:.15s; }
+  .dropzone:hover, .dropzone.drag{ border-color:var(--ink); background:var(--paper-dim); }
+  .dropzone input{ display:none; }
+  .dz-icon{ font-size:26px; margin-bottom:8px; }
+  .dz-main{ font-weight:600; font-size:14.5px; }
+  .dz-sub{ font-size:12px; color:var(--machine); margin-top:4px; }
+  .file-chip{ display:flex; align-items:center; justify-content:space-between; border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; margin-top:12px; background:var(--paper-dim); font-size:13px; }
+  .file-chip button{ background:none;border:none;color:var(--stamp);cursor:pointer;font-size:12px;font-family:inherit; }
+  .toggle-group{ display:flex; gap:8px; margin-top:14px; }
+  .toggle-btn{ flex:1; padding:14px 10px; border:1.5px solid var(--line); border-radius:var(--radius); background:#fff; cursor:pointer; text-align:center; font-weight:600; font-size:13.5px; }
+  .toggle-btn.selected{ border-color:var(--ink); background:var(--ink); color:var(--paper); }
+  .field{ margin-top:14px; }
+  .field label{ display:block; font-size:12px; color:var(--ink-soft); margin-bottom:5px; font-weight:600;}
+  .field input[type=number]{ width:100%; padding:10px 11px; border:1.5px solid var(--line); border-radius:var(--radius); font-family:'IBM Plex Mono',monospace; font-size:15px; background:#fff; }
+  .stepper{ display:flex; align-items:center; }
+  .stepper button{ width:38px;height:38px; border:1.5px solid var(--line); background:#fff; font-size:17px; cursor:pointer; }
+  .stepper button:first-child{ border-radius:var(--radius) 0 0 var(--radius); }
+  .stepper button:last-child{ border-radius:0 var(--radius) var(--radius) 0; }
+  .stepper input{ width:60px; text-align:center; border-top:1.5px solid var(--line); border-bottom:1.5px solid var(--line); border-left:none; border-right:none; height:38px; font-family:'IBM Plex Mono',monospace; font-size:15px; }
+  .price-bar{ display:flex; align-items:baseline; justify-content:space-between; margin-top:20px; padding-top:16px; border-top:1px dashed var(--line); }
+  .price-label{ font-size:12px; color:var(--machine); text-transform:uppercase; letter-spacing:1px;}
+  .price-value{ font-family:'IBM Plex Mono',monospace; font-size:28px; font-weight:700; }
+  .btn{ width:100%; padding:14px; border:none; border-radius:var(--radius); background:var(--ink); color:var(--paper); font-weight:700; font-size:14.5px; cursor:pointer; margin-top:16px; font-family:'IBM Plex Sans',sans-serif; }
+  .btn:disabled{ background:var(--line); color:var(--machine); cursor:not-allowed; }
+  .btn:hover:not(:disabled){ background:#000; }
+  .btn.ghost{ background:none; border:1.5px solid var(--ink); color:var(--ink); }
+  .receipt{ background:#fff; border:1px solid var(--line); position:relative; padding:24px 22px 20px; margin:0 auto 16px; max-width:340px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+  .receipt-head{ text-align:center; margin-bottom:14px; }
+  .receipt-head .name{ font-weight:700; font-size:15px; }
+  .receipt-head .sub{ font-size:10.5px; color:var(--machine); letter-spacing:1px; text-transform:uppercase;}
+  .receipt hr{ border:none; border-top:1px dashed var(--line); margin:12px 0; }
+  .r-line{ display:flex; justify-content:space-between; font-size:12.5px; margin:5px 0; font-family:'IBM Plex Mono',monospace;}
+  .r-line span:first-child{ color:var(--ink-soft); }
+  .r-total{ display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:17px; margin-top:8px;}
+  .qr-wrap{ display:flex; justify-content:center; margin:16px 0 6px; }
+  .qr-wrap img{ width:140px;height:140px; border:1px solid var(--line); }
+  .stamp{ display:inline-block; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:11px; padding:4px 10px; border:2px solid var(--go); color:var(--go); border-radius:3px; transform:rotate(-4deg); text-transform:uppercase; }
+  .track{ display:flex; flex-direction:column; margin-top:8px; }
+  .track-item{ display:flex; gap:12px; position:relative; padding-bottom:22px; }
+  .track-item:last-child{ padding-bottom:0; }
+  .track-dot{ width:22px;height:22px; border-radius:50%; border:2px solid var(--line); background:#fff; flex-shrink:0; display:flex;align-items:center;justify-content:center; font-size:11px; z-index:1; }
+  .track-item.done .track-dot{ background:var(--go); border-color:var(--go); color:#fff; }
+  .track-item.current .track-dot{ background:var(--ink); border-color:var(--ink); color:var(--paper); }
+  .track-item::before{ content:''; position:absolute; left:10px; top:22px; bottom:0; width:2px; background:var(--line); }
+  .track-item:last-child::before{ display:none; }
+  .track-item.done::before{ background:var(--go); }
+  .track-title{ font-weight:600; font-size:13.5px; }
+  .track-sub{ font-size:11.5px; color:var(--machine); margin-top:1px;}
+  .printer-led{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-family:'IBM Plex Mono',monospace;}
+  .led-dot{ width:8px;height:8px;border-radius:50%; background:var(--machine); }
+  .led-dot.on{ background:var(--go); box-shadow:0 0 0 3px var(--go-dim); }
+  .led-dot.off{ background:var(--stamp); box-shadow:0 0 0 3px var(--stamp-dim); }
+  .admin-lock{ text-align:center; padding:60px 20px; }
+  .admin-lock input{ width:100%; max-width:220px; padding:12px; text-align:center; font-family:'IBM Plex Mono',monospace; border:1.5px solid var(--line); border-radius:var(--radius); font-size:16px; letter-spacing:3px; margin:14px 0; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .rate-input{ position:relative; }
+  .rate-input span{ position:absolute; left:11px; top:33px; color:var(--machine); font-family:'IBM Plex Mono',monospace;}
+  .rate-input input{ padding-left:24px !important; }
+  table.orders{ width:100%; border-collapse:collapse; font-size:12.5px; margin-top:10px;}
+  table.orders th{ text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; color:var(--machine); padding:8px 6px; border-bottom:2px solid var(--ink); }
+  table.orders td{ padding:9px 6px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  .badge{ font-family:'IBM Plex Mono',monospace; font-size:10px; padding:3px 7px; border-radius:3px; font-weight:600; text-transform:uppercase; white-space:nowrap; }
+  .badge.pending, .badge.awaiting_payment{ background:var(--warn-dim); color:var(--warn); }
+  .badge.paid, .badge.printed{ background:var(--go-dim); color:var(--go); }
+  .badge.queued{ background:var(--paper-dim); color:var(--ink-soft); }
+  .badge.printing{ background:#dbe6f5; color:#2b5aa3; }
+  .mini-btn{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:5px 8px; border:1px solid var(--ink); background:#fff; border-radius:3px; cursor:pointer; margin:2px; }
+  .mini-btn:hover{ background:var(--ink); color:#fff; }
+  .mini-btn.primary{ background:var(--ink); color:#fff; }
+  .empty{ text-align:center; padding:40px 10px; color:var(--machine); font-size:13px; }
+  .toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--paper); padding:11px 20px; border-radius:var(--radius); font-size:13px; font-family:'IBM Plex Mono',monospace; opacity:0; transition:.2s; pointer-events:none; z-index:50; max-width:90%; text-align:center; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
+  .foot-note{ text-align:center; font-size:11px; color:var(--machine); margin-top:24px; line-height:1.6; }
+  .cfg-banner{ background:#eef4ff; border:1px solid #a9c4ec; border-radius:var(--radius); padding:10px 14px; font-size:12px; margin-bottom:16px; color:#1f4e8c; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== CONFIG ===================== */
+const UPI_ID = 'piyushshivam@boi';
+const UPI_NAME = 'QuickPrint Shop';
+const ADMIN_PIN = '1234';
+/* ==================================================== */
+
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(window.__t); window.__t=setTimeout(()=>t.classList.remove('show'),2600);
+}
+function uid(){ return 'ORD' + Date.now().toString(36).toUpperCase(); }
+
+/* ---- storage: everything lives in this browser (localStorage) ---- */
+function getOrders(){ try{ return JSON.parse(localStorage.getItem('qp_orders')||'[]'); }catch(e){ return []; } }
+function setOrders(v){ localStorage.setItem('qp_orders', JSON.stringify(v)); }
+function getRates(){ try{ return JSON.parse(localStorage.getItem('qp_rates')) || {bw:2,color:10}; }catch(e){ return {bw:2,color:10}; } }
+function setRates(v){ localStorage.setItem('qp_rates', JSON.stringify(v)); }
+function getPrinterOnline(){ const v = localStorage.getItem('qp_printer_online'); return v===null ? true : v==='true'; }
+function setPrinterOnline(v){ localStorage.setItem('qp_printer_online', String(v)); }
+
+const state = {
+  view:'customer', step:1, file:null, mode:null, copies:1,
+  rates:getRates(), printerOnline:getPrinterOnline(), order:null, adminUnlocked:false,
+};
+
+function render(){
+  state.rates = getRates();
+  state.printerOnline = getPrinterOnline();
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="brand"><div class="brand-mark">QP</div>
+        <div><div class="brand-name">QuickPrint</div><div class="brand-sub">Scan · Upload · Print</div></div></div>
+      <button class="nav-toggle" id="navToggle">${state.view==='customer' ? '⚙ Admin Panel' : '← Customer View'}</button>
+    </div>
+    <div id="content"></div>`;
+  document.getElementById('navToggle').onclick = ()=>{ state.view = state.view==='customer'?'admin':'customer'; render(); };
+  if(state.view==='customer') renderCustomer(); else renderAdmin();
+}
+
+/* ================= CUSTOMER ================= */
+function renderCustomer(){
+  const c = document.getElementById('content');
+  c.innerHTML = `<div class="steps">${[1,2,3,4].map(i=>`<div class="step-dot ${state.step===i?'active':(state.step>i?'done':'')}"></div>`).join('')}</div><div id="stepBody"></div>`;
+  const body = document.getElementById('stepBody');
+  if(state.step===1) body.innerHTML = stepUpload();
+  else if(state.step===2) body.innerHTML = stepOptions();
+  else if(state.step===3) body.innerHTML = stepPayment();
+  else body.innerHTML = stepStatus();
+  wireStep();
+}
+
+function stepUpload(){
+  return `<div class="panel">
+    <div class="eyebrow">Step 1 / 4</div><h2>File अपलोड करें</h2>
+    <p class="hint">PDF या image चुनें — pages automatically count हो जाएंगे।</p>
+    <label class="dropzone" id="dz"><input type="file" id="fileInput" accept=".pdf,image/*">
+      <div class="dz-icon">📄</div><div class="dz-main">Tap to choose file, या drag यहाँ</div>
+      <div class="dz-sub">PDF, JPG, PNG</div>
+    </label></div>`;
+}
+
+function stepOptions(){
+  const f=state.file, price=calcPrice();
+  return `<div class="panel">
+    <div class="eyebrow">Step 2 / 4</div><h2>Print Options</h2>
+    <div class="file-chip"><span>📄 ${f.name} · ${f.pages} page${f.pages===1?'':'s'}</span><button id="changeFile">बदलें</button></div>
+    <div class="field"><label>B&W या Color?</label>
+      <div class="toggle-group">
+        <div class="toggle-btn ${state.mode==='bw'?'selected':''}" data-mode="bw">⚫ Black &amp; White<br><span class="mono" style="font-weight:400;font-size:11px;">₹${state.rates.bw}/page</span></div>
+        <div class="toggle-btn ${state.mode==='color'?'selected':''}" data-mode="color">🎨 Color<br><span class="mono" style="font-weight:400;font-size:11px;">₹${state.rates.color}/page</span></div>
+      </div></div>
+    <div class="field"><label>Pages (edit करें अगर गलत हो)</label><input type="number" id="pagesInput" min="1" value="${f.pages}"></div>
+    <div class="field"><label>Copies</label>
+      <div class="stepper"><button id="copyMinus">−</button><input type="number" id="copiesInput" value="${state.copies}" min="1"><button id="copyPlus">+</button></div></div>
+    <div class="price-bar"><span class="price-label">Total Price</span><span class="price-value mono">₹${price}</span></div>
+    <button class="btn" id="toPayment" ${state.mode?'':'disabled'}>Order बनाएं + UPI Pay →</button>
+  </div>`;
+}
+
+function stepPayment(){
+  const price = calcPrice();
+  const upiLink = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(UPI_NAME)}&am=${price}&cu=INR&tn=${state.order.id}`;
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(upiLink)}`;
+  return `<div class="panel" style="text-align:center;">
+    <div class="eyebrow">Step 3 / 4</div><h2>UPI Payment</h2>
+    <p class="hint">GPay / PhonePe / Paytm से QR scan करके pay करें<br>UPI ID: <b>${UPI_ID}</b></p>
+    <div class="qr-wrap"><img src="${qrSrc}" alt="UPI QR"></div>
+    <div class="mono" style="font-size:22px;font-weight:700;margin:6px 0 2px;">₹${price}</div>
+    <div style="font-size:11px;color:var(--machine);margin-bottom:16px;">Order ID: ${state.order.id}</div>
+    <button class="btn" id="simPay">✅ Payment हो गया — Confirm करें</button>
+    <p class="hint" style="margin-top:10px;">Note: real business ke liye isse Razorpay/Cashfree jaisa gateway replace karega jo actual payment verify kare.</p>
+  </div>`;
+}
+
+function stepStatus(){
+  const orders = getOrders();
+  const o = orders.find(x=>x.id===state.order.id) || state.order;
+  const stageIdx = {queued:0, printing:1, printed:2}[o.printStatus] ?? 0;
+  const labels = [
+    {t:'Print Queue में डाला गया', s:'Order accept हो गया'},
+    {t:'Printing शुरू', s:'Shop counter par printer se print ho raha hai'},
+    {t:'Print पूरा हुआ', s:'Apna print counter se collect karein'},
+  ];
+  return `<div class="receipt">
+    <div class="receipt-head"><div class="name">QUICKPRINT</div><div class="sub">Order Receipt</div></div><hr>
+    <div class="r-line"><span>Order ID</span><span>${o.id}</span></div>
+    <div class="r-line"><span>File</span><span>${o.fileName}</span></div>
+    <div class="r-line"><span>Mode</span><span>${o.mode==='bw'?'B&W':'Color'}</span></div>
+    <div class="r-line"><span>Pages × Copies</span><span>${o.pages} × ${o.copies}</span></div><hr>
+    <div class="r-total"><span>Total</span><span>₹${o.price}</span></div>
+    <div style="text-align:center;margin-top:10px;"><span class="stamp">PAID</span></div>
+  </div>
+  <div class="panel">
+    <div class="eyebrow">Step 4 / 4</div><h2>Print Status</h2>
+    <div class="track">${labels.map((l,i)=>`
+      <div class="track-item ${i<stageIdx || o.printStatus==='printed'&&i<=stageIdx?'done':(i===stageIdx?'current':'')}">
+        <div class="track-dot">${i<stageIdx || (o.printStatus==='printed'&&i<=stageIdx)?'✓':''}</div>
+        <div><div class="track-title">${l.t}</div><div class="track-sub">${l.s}</div></div>
+      </div>`).join('')}
+    </div>
+    <div style="margin-top:16px;"><span class="printer-led"><span class="led-dot ${state.printerOnline?'on':'off'}"></span>Printer ${state.printerOnline?'Online':'Offline'}</span></div>
+    <button class="btn ghost" id="newOrder" style="margin-top:18px;">+ नया Order शुरू करें</button>
+  </div>`;
+}
+
+function calcPrice(){
+  if(!state.file || !state.mode) return 0;
+  const rate = state.mode==='bw'?state.rates.bw:state.rates.color;
+  return rate * state.file.pages * state.copies;
+}
+
+function wireStep(){
+  if(state.step===1){
+    const dz=document.getElementById('dz'), input=document.getElementById('fileInput');
+    dz.addEventListener('dragover', e=>{e.preventDefault(); dz.classList.add('drag');});
+    dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
+    dz.addEventListener('drop', e=>{e.preventDefault(); dz.classList.remove('drag'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);});
+    input.onchange = e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); };
+  }
+  if(state.step===2){
+    document.getElementById('changeFile').onclick = ()=>{ state.step=1; state.file=null; state.mode=null; render(); };
+    document.querySelectorAll('.toggle-btn').forEach(b=>b.onclick=()=>{ state.mode=b.dataset.mode; renderCustomer(); });
+    document.getElementById('pagesInput').oninput = e=>{ state.file.pages=Math.max(1,parseInt(e.target.value)||1); renderCustomer(); };
+    document.getElementById('copiesInput').oninput = e=>{ state.copies=Math.max(1,parseInt(e.target.value)||1); renderCustomer(); };
+    document.getElementById('copyMinus').onclick = ()=>{ state.copies=Math.max(1,state.copies-1); renderCustomer(); };
+    document.getElementById('copyPlus').onclick = ()=>{ state.copies+=1; renderCustomer(); };
+    document.getElementById('toPayment').onclick = createOrder;
+  }
+  if(state.step===3){
+    document.getElementById('simPay').onclick = ()=>{
+      const orders = getOrders();
+      const idx = orders.findIndex(o=>o.id===state.order.id);
+      if(idx>-1){ orders[idx].paymentStatus='paid'; orders[idx].printStatus='queued'; setOrders(orders); state.order=orders[idx]; }
+      state.step = 4;
+      toast('Payment confirmed — order queued ✅');
+      renderCustomer();
+    };
+  }
+  if(state.step===4){
+    document.getElementById('newOrder').onclick = ()=>{
+      state.step=1; state.file=null; state.mode=null; state.copies=1; state.order=null; render();
+    };
+  }
+}
+
+function createOrder(){
+  const price = calcPrice();
+  const order = {
+    id: uid(), fileName: state.file.name, fileData: state.file.dataUrl,
+    mode: state.mode, pages: state.file.pages, copies: state.copies, price,
+    paymentStatus: 'pending', printStatus: 'awaiting_payment', createdAt: Date.now(),
+  };
+  const orders = getOrders();
+  orders.unshift(order);
+  setOrders(orders);
+  state.order = order;
+  state.step = 3;
+  renderCustomer();
+}
+
+function handleFile(file){
+  if(file.size > 8*1024*1024){ toast('File 8MB से बड़ी है — छोटी file चुनें (browser storage limit)'); return; }
+  const reader = new FileReader();
+  reader.onload = async (e)=>{
+    const dataUrl = e.target.result;
+    let pages = 1;
+    if(file.type === 'application/pdf'){
+      try{
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const doc = await pdfjsLib.getDocument({data: atob(dataUrl.split(',')[1])}).promise;
+        pages = doc.numPages;
+      }catch(err){
+        try{
+          const buf = await file.arrayBuffer();
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          const doc = await pdfjsLib.getDocument({data: buf}).promise;
+          pages = doc.numPages;
+        }catch(e2){ pages = 1; toast('Page count detect नहीं हुआ — manually set करें'); }
+      }
+    }
+    state.file = { name:file.name, type:file.type, pages, dataUrl };
+    state.step = 2;
+    renderCustomer();
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ================= ADMIN ================= */
+function renderAdmin(){
+  const c = document.getElementById('content');
+  if(!state.adminUnlocked){
+    c.innerHTML = `<div class="panel admin-lock">
+      <div class="eyebrow">Restricted</div><h2>Admin Login</h2>
+      <p class="hint">Shop owner PIN डालें</p>
+      <input type="password" id="pinInput" maxlength="6" placeholder="••••"><br>
+      <button class="btn" id="pinGo" style="max-width:220px;">Unlock</button>
+      <p class="hint" style="margin-top:14px;">Demo PIN: ${ADMIN_PIN}</p>
+    </div>`;
+    document.getElementById('pinGo').onclick = ()=>{
+      if(document.getElementById('pinInput').value === ADMIN_PIN){ state.adminUnlocked=true; renderAdmin(); }
+      else toast('गलत PIN');
+    };
+    document.getElementById('pinInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('pinGo').click(); });
+    return;
+  }
+
+  const orders = getOrders();
+  c.innerHTML = `
+    <div class="cfg-banner">💾 Yeh data sirf isi browser mein save hota hai (localStorage). Doosre device/browser se orders yahan nahi dikhenge — yeh single-file demo version hai.</div>
+    <div class="panel"><div class="eyebrow">Printer Status</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="printer-led"><span class="led-dot ${state.printerOnline?'on':'off'}"></span>${state.printerOnline?'Online':'Offline'}</span>
+        <button class="mini-btn" id="togglePrinter">${state.printerOnline?'Set Offline':'Set Online'}</button>
+      </div></div>
+    <div class="panel"><div class="eyebrow">Pricing</div><h2>Rates बदलें</h2>
+      <div class="grid2">
+        <div class="field rate-input"><label>B&W rate / page</label><span>₹</span><input type="number" id="rateBw" value="${state.rates.bw}"></div>
+        <div class="field rate-input"><label>Color rate / page</label><span>₹</span><input type="number" id="rateColor" value="${state.rates.color}"></div>
+      </div>
+      <button class="btn" id="saveRates">Rates Save करें</button></div>
+    <div class="panel"><div class="eyebrow">Orders (${orders.length})</div><h2>Order Queue</h2>
+      ${orders.length===0 ? `<div class="empty">अभी तक कोई order नहीं आया।</div>` : `
+      <div style="overflow-x:auto;"><table class="orders"><thead><tr>
+        <th>ID</th><th>File</th><th>Mode</th><th>Pg×Cp</th><th>Price</th><th>Payment</th><th>Print</th><th>Action</th>
+      </tr></thead><tbody>
+      ${orders.map(o=>`<tr>
+        <td class="mono">${o.id}</td>
+        <td>${o.fileName.length>12?o.fileName.slice(0,10)+'…':o.fileName}</td>
+        <td>${o.mode==='bw'?'B&W':'Color'}</td><td>${o.pages}×${o.copies}</td>
+        <td class="mono">₹${o.price}</td>
+        <td><span class="badge ${o.paymentStatus}">${o.paymentStatus}</span></td>
+        <td><span class="badge ${o.printStatus}">${o.printStatus}</span></td>
+        <td>
+          ${o.paymentStatus==='paid' ? `<button class="mini-btn primary" data-act="print" data-id="${o.id}">🖨 Print Now</button>` : ''}
+          ${o.printStatus==='printing' ? `<button class="mini-btn" data-act="printed" data-id="${o.id}">Mark Printed</button>` : ''}
+        </td>
+      </tr>`).join('')}
+      </tbody></table></div>`}
+    </div>
+    <p class="foot-note">"Print Now" aapki file ko naye tab mein kholega aur browser ka print dialog khud khul jayega — wahan apna USB printer choose karke print karein. Yeh real print hai, sirf ek click extra hai (poori tarah automatic background printing ke liye Node.js server wala version chahiye).</p>
+  `;
+  document.getElementById('togglePrinter').onclick = ()=>{ setPrinterOnline(!state.printerOnline); renderAdmin(); };
+  document.getElementById('saveRates').onclick = ()=>{
+    const bw = parseFloat(document.getElementById('rateBw').value)||0;
+    const color = parseFloat(document.getElementById('rateColor').value)||0;
+    setRates({bw,color}); toast('Rates updated ✅'); renderAdmin();
+  };
+  document.querySelectorAll('[data-act]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const orders = getOrders();
+      const idx = orders.findIndex(o=>o.id===btn.dataset.id);
+      if(idx===-1) return;
+      if(btn.dataset.act==='print'){
+        orders[idx].printStatus = 'printing';
+        setOrders(orders);
+        printFile(orders[idx]);
+      } else if(btn.dataset.act==='printed'){
+        orders[idx].printStatus = 'printed';
+        setOrders(orders);
+      }
+      renderAdmin();
+    };
+  });
+}
+
+function printFile(order){
+  const w = window.open('', '_blank');
+  if(!w){ toast('Popup block ho gaya — browser settings mein popups allow karein'); return; }
+  if(order.fileData.startsWith('data:application/pdf')){
+    w.document.write(`<iframe src="${order.fileData}" style="border:none;width:100%;height:100vh;" onload="this.contentWindow.print()"></iframe>`);
+  } else {
+    w.document.write(`<html><body style="margin:0;"><img src="${order.fileData}" style="width:100%;" onload="window.print()"></body></html>`);
+  }
+}
+
+render();
+</script>
+</body>
+</html>
